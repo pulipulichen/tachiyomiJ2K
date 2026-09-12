@@ -11,6 +11,9 @@ class LibraryManga : MangaImpl() {
     /** Average normalized (10-point) score across the trackers this manga is scored on, or 0 if untracked/unscored. */
     var score: Float = 0f
 
+    /** Newest unread chapter `date_upload`, or 0 if there are no unread chapters. */
+    var latestUnreadChapter: Long = 0
+
     val totalChapters
         get() = read + unread
 

@@ -45,6 +45,8 @@ object MangaTable {
 
     const val COL_SCORE = "score"
 
+    const val COL_LATEST_UNREAD_CHAPTER = "latest_unread_chapter"
+
     const val COL_CATEGORY = "category"
 
     const val COL_HIDE_TITLE = "hideTitle"

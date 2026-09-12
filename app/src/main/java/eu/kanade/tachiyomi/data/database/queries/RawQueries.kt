@@ -21,7 +21,8 @@ val libraryQuery =
             COALESCE(CC.count, 0) AS ${Manga.COL_UNREAD_COUNT}, COALESCE(C.unread, '') AS ${Manga.COL_UNREAD},
             COALESCE(RC.count, 0) AS ${Manga.COL_READ_COUNT}, COALESCE(R.hasread, '') AS ${Manga.COL_HAS_READ},
             COALESCE(B.bookmarkCount, 0) AS ${Manga.COL_BOOKMARK_COUNT},
-            COALESCE(S.score, 0) AS ${Manga.COL_SCORE}
+            COALESCE(S.score, 0) AS ${Manga.COL_SCORE},
+            COALESCE(LUC.${Manga.COL_LATEST_UNREAD_CHAPTER}, 0) AS ${Manga.COL_LATEST_UNREAD_CHAPTER}
         FROM ${Manga.TABLE}
         LEFT JOIN (
             SELECT ${Chapter.COL_MANGA_ID}, COUNT(*) AS count
@@ -30,6 +31,13 @@ val libraryQuery =
             GROUP BY ${Chapter.COL_MANGA_ID}
         ) AS CC
         ON ${Manga.COL_ID} = CC.${Chapter.COL_MANGA_ID}
+        LEFT JOIN (
+            SELECT ${Chapter.COL_MANGA_ID}, MAX(${Chapter.COL_DATE_UPLOAD}) AS ${Manga.COL_LATEST_UNREAD_CHAPTER}
+            FROM ${Chapter.TABLE}
+            WHERE ${Chapter.COL_READ} = 0
+            GROUP BY ${Chapter.COL_MANGA_ID}
+        ) AS LUC
+        ON ${Manga.COL_ID} = LUC.${Chapter.COL_MANGA_ID}
         LEFT JOIN (
             SELECT ${Chapter.TABLE}.${Chapter.COL_MANGA_ID}, GROUP_CONCAT(IFNULL(${Chapter.TABLE}.${Chapter.COL_SCANLATOR}, "N/A"), " [.] ") AS unread
             FROM ${Chapter.TABLE}

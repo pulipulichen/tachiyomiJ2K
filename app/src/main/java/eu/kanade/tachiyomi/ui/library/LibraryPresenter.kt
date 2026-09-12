@@ -730,6 +730,13 @@ class LibraryPresenter(
                                 when (snapshot.sortingMode) {
                                     LibrarySort.Title -> sortAlphabetical(i1, i2)
                                     LibrarySort.LatestChapter -> i2.manga.last_update.compareTo(i1.manga.last_update)
+                                    LibrarySort.LatestUnreadChapter ->
+                                        when {
+                                            i1.manga.unread == 0 && i2.manga.unread == 0 -> 0
+                                            i1.manga.unread == 0 -> if (snapshot.ascending) 1 else -1
+                                            i2.manga.unread == 0 -> if (snapshot.ascending) -1 else 1
+                                            else -> i2.manga.latestUnreadChapter.compareTo(i1.manga.latestUnreadChapter)
+                                        }
                                     LibrarySort.Unread ->
                                         when {
                                             i1.manga.unread == i2.manga.unread -> 0

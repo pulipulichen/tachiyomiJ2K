@@ -264,6 +264,16 @@ class LibraryCategoryAdapter(
                             LibrarySort.LatestChapter -> {
                                 context.timeSpanFromNow(R.string.updated_, item.manga.last_update)
                             }
+                            LibrarySort.LatestUnreadChapter -> {
+                                if (item.manga.unread > 0) {
+                                    context.timeSpanFromNow(
+                                        R.string.updated_,
+                                        item.manga.latestUnreadChapter,
+                                    )
+                                } else {
+                                    context.getString(R.string.read)
+                                }
+                            }
                             LibrarySort.DateAdded -> {
                                 context.timeSpanFromNow(R.string.added_, item.manga.date_added)
                             }

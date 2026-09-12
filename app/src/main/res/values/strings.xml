@@ -185,6 +185,7 @@
     <string name="last_read">Last read</string>
     <string name="date_fetched">Date fetched</string>
     <string name="latest_chapter">Latest chapter</string>
+    <string name="latest_unread_chapter">Latest unread chapter</string>
     <string name="drag_and_drop">Drag &amp; Drop</string>
 
     <!-- Library Display -->

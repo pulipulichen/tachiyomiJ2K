@@ -278,6 +278,7 @@
     <string name="updating_library">正在更新書櫃</string>
     <string name="date_added">收藏日期</string>
     <string name="latest_chapter">最新章節</string>
+    <string name="latest_unread_chapter">最新未讀章節</string>
     <string name="no_results_found">找不到結果</string>
     <string name="local_source_help_guide">本機來源入門指南</string>
     <string name="check_site_in_web">在 WebView 中檢查網站</string>
