@@ -14,13 +14,15 @@ import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Tasks
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
 class CloudSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result = syncMutex.withLock { withContext(Dispatchers.IO) {
         val config = CloudSyncConfig(applicationContext)
         if (!config.enabled || config.accountId == null) return@withContext Result.success()
         try {
@@ -48,9 +50,10 @@ class CloudSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
             config.lastError = error.message?.take(300) ?: "Cloud sync failed"
             if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
-    }
+    } }
 
     companion object {
+        private val syncMutex = Mutex()
         private const val PERIODIC = "tachiyomi-cloud-sync-periodic"
         private const val ONCE = "tachiyomi-cloud-sync-once"
 
