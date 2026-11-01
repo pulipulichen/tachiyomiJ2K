@@ -6,6 +6,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.ItemTouchHelper
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.manga.chapter.BaseChapterAdapter
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
@@ -71,6 +72,15 @@ class MangaDetailsAdapter(
 
     private fun insertMissingChapterItems(chapters: List<ChapterItem>): List<IFlexible<*>> {
         if (chapters.size < 2 || !preferences.showChapterMissingWarnings().get()) return chapters
+
+        // Missing-chapter gaps are meaningful only when adjacent items are ordered by
+        // chapter number. Upload-date/source order can place unrelated numbers together.
+        if (presenter.sortingOrder() != Manga.CHAPTER_SORTING_NUMBER) return chapters
+
+        // Volume releases and serialized chapters have independent numbering schemes.
+        // Comparing their numbers would report nonexistent missing chapters.
+        val volumeNamePattern = Regex("""(?:第\\s*\\d+\\s*[卷巻]|\\bvol(?:ume)?\\.?\\s*\\d+)""", RegexOption.IGNORE_CASE)
+        if (chapters.any { volumeNamePattern.containsMatchIn(it.name) }) return chapters
 
         val descending = presenter.sortDescending()
         val result = ArrayList<IFlexible<*>>(chapters.size + 1)
