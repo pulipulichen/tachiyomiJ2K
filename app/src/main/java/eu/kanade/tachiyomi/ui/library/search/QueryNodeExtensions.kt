@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.library.search
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import eu.kanade.tachiyomi.util.lang.ChineseText
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -24,9 +25,11 @@ private fun GeneralQueryNode.matches(item: LibraryItem): Boolean {
             if (field.fieldOnly) return@any false
 
             when (field) {
-                MangaField.TITLE -> manga.title.contains(value, ignoreCase = true)
-                MangaField.AUTHOR -> manga.author?.contains(value, ignoreCase = true) ?: false
-                MangaField.ARTIST -> manga.artist?.contains(value, ignoreCase = true) ?: false
+                MangaField.TITLE ->
+                    ChineseText.containsEquivalent(manga.title, value) ||
+                        ChineseText.containsEquivalent(manga.originalTitle, value)
+                MangaField.AUTHOR -> manga.author?.let { ChineseText.containsEquivalent(it, value) } ?: false
+                MangaField.ARTIST -> manga.artist?.let { ChineseText.containsEquivalent(it, value) } ?: false
                 MangaField.GENRE -> item.matchesGenreOrType(value)
                 MangaField.SOURCE -> item.matchesSourceName(value)
 
@@ -87,7 +90,9 @@ private fun FieldQueryNode.matches(item: LibraryItem): Boolean {
                 if (value.isEmpty()) {
                     text.isNullOrEmpty()
                 } else {
-                    text?.contains(value, ignoreCase = true) ?: false
+                    (text?.let { ChineseText.containsEquivalent(it, value) } ?: false) ||
+                        (field == MangaField.TITLE &&
+                            ChineseText.containsEquivalent(manga.originalTitle, value))
                 }
             }
         }

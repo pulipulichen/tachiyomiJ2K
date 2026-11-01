@@ -4,6 +4,8 @@ import eu.kanade.tachiyomi.data.database.DatabaseHelper
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.ui.source.getSearchMangaWithChineseVariants
+import eu.kanade.tachiyomi.util.lang.ChineseText
 import eu.kanade.tachiyomi.util.lang.toNormalized
 import info.debatty.java.stringsimilarity.NormalizedLevenshtein
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +58,7 @@ class SmartSearchEngine(
         title: String,
     ): SManga? {
         val titleNormalized = title.toNormalized()
+        val titleForComparison = ChineseText.simplified(titleNormalized)
         val eligibleManga =
             supervisorScope {
                 val searchQuery =
@@ -65,7 +68,7 @@ class SmartSearchEngine(
                         titleNormalized
                     }
                 val searchResults =
-                    source.getSearchManga(1, searchQuery, source.getFilterList())
+                    source.getSearchMangaWithChineseVariants(1, searchQuery, source.getFilterList())
 
                 if (searchResults.mangas.size == 1) {
                     return@supervisorScope listOf(SearchEntry(searchResults.mangas.first(), 0.0))
@@ -73,7 +76,10 @@ class SmartSearchEngine(
 
                 searchResults.mangas
                     .map {
-                        val normalizedDistance = normalizedLevenshtein.similarity(titleNormalized, it.title.toNormalized())
+                        val normalizedDistance = normalizedLevenshtein.similarity(
+                            titleForComparison,
+                            ChineseText.simplified(it.title.toNormalized()),
+                        )
                         SearchEntry(it, normalizedDistance)
                     }.filter { (_, normalizedDistance) ->
                         normalizedDistance >= MIN_NORMAL_ELIGIBLE_THRESHOLD

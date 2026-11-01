@@ -44,16 +44,32 @@
                 android:layout_marginStart="16dp"
                 android:text="@string/reset_cover" />
 
-            <eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText
-                android:id="@+id/title"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/title"
-                android:layout_marginEnd="16dp"
-                android:importantForAutofill="no"
                 android:layout_marginStart="16dp"
-                android:inputType="text"
-                android:maxLines="1"/>
+                android:layout_marginEnd="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText
+                    android:id="@+id/title"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/title"
+                    android:importantForAutofill="no"
+                    android:inputType="text"
+                    android:maxLines="1"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/use_original_title"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/use_original_title"
+                    android:textAllCaps="false"/>
+            </LinearLayout>
             <eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText
                 android:id="@+id/manga_author"
                 android:layout_width="match_parent"
