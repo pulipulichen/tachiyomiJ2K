@@ -45,11 +45,11 @@ android {
         buildConfigField("Boolean", "INCLUDE_UPDATER", "false")
         buildConfigField("boolean", "BETA", "false")
 
-        ndk {
-            abiFilters += supportedAbis
-        }
         externalNativeBuild {
             cmake {
+                // Build ABIs here; packaging is controlled by splits. Global NDK
+                // abiFilters conflict with ABI splits when universal APKs are off.
+                abiFilters += supportedAbis
                 this.arguments("-DHAVE_LIBJXL=FALSE")
             }
         }
