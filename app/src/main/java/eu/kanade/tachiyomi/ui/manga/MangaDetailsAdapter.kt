@@ -79,7 +79,7 @@ class MangaDetailsAdapter(
 
         // Volume releases and serialized chapters have independent numbering schemes.
         // Comparing their numbers would report nonexistent missing chapters.
-        val volumeNamePattern = Regex("""(?:第\\s*\\d+\\s*[卷巻]|\\bvol(?:ume)?\\.?\\s*\\d+)""", RegexOption.IGNORE_CASE)
+        val volumeNamePattern = Regex("""(?:第\s*\d+\s*[卷巻]|\bvol(?:ume)?\.?\s*\d+)""", RegexOption.IGNORE_CASE)
         if (chapters.any { volumeNamePattern.containsMatchIn(it.name) }) return chapters
 
         val descending = presenter.sortDescending()
