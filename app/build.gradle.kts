@@ -17,7 +17,13 @@ if (gradle.startParameter.taskRequests.toString().contains("Standard")) {
     apply<com.google.gms.googleservices.GoogleServicesPlugin>()
 }
 
-val supportedAbis = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+val allSupportedAbis = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+val supportedAbis = providers.gradleProperty("tachiyomi.build.abis").orNull
+    ?.split(',')?.map(String::trim)?.toSet() ?: allSupportedAbis
+require(supportedAbis.isNotEmpty() && supportedAbis.all { it in allSupportedAbis }) {
+    "tachiyomi.build.abis must be a comma-separated subset of ${allSupportedAbis.joinToString()}"
+}
+val generateUniversalApk = providers.gradleProperty("tachiyomi.build.universal").orNull?.toBooleanStrict() ?: true
 
 android {
     compileSdk = AndroidVersions.compileSdk
@@ -54,7 +60,7 @@ android {
             isEnable = true
             reset()
             include(*supportedAbis.toTypedArray())
-            isUniversalApk = true
+            isUniversalApk = generateUniversalApk
         }
     }
 

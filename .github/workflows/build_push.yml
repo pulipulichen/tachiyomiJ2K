@@ -1,17 +1,22 @@
-name: CI
+name: APKs - automatic ARM, manual full
 on:
   push:
     branches:
       - master
+      - feature/google-drive-sync
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/readme-images/**'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version'
+        description: 'Full build release tag (includes ARM, x86 and universal APKs)'
         required: true
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: apk-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -19,16 +24,41 @@ permissions:
 
 jobs:
   build:
-    name: Build app
+    name: ${{ github.event_name == 'push' && 'ARM quick build' || 'Full manual build' }}
     runs-on: ubuntu-24.04
     env:
       HAS_SIGNING_KEY: ${{ secrets.SIGNING_KEY != '' && secrets.ALIAS != '' && secrets.KEY_STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' }}
+      BUILD_KIND: ${{ github.event_name == 'push' && 'arm' || 'full' }}
+      VERSION_TAG: ${{ github.event.inputs.version }}
+      ARM_RELEASE_TAG: ${{ github.ref_name == 'master' && 'dev-arm-latest' || 'sync-arm-latest' }}
+      ARM_RELEASE_NAME: ${{ github.ref_name == 'master' && 'TachiyomiJ2K ARM Development (latest)' || 'TachiyomiJ2K ARM Sync Beta (latest)' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+
+      - name: Validate signing and release settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$HAS_SIGNING_KEY" != true ]]; then
+            echo '::error::Configure SIGNING_KEY, ALIAS, KEY_STORE_PASSWORD and KEY_PASSWORD before building.'
+            exit 1
+          fi
+          if [[ "$BUILD_KIND" == full ]]; then
+            [[ "$VERSION_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || {
+              echo '::error::Use a release tag containing only letters, digits, dots, underscores and hyphens.'
+              exit 1
+            }
+            case "$VERSION_TAG" in
+              dev-latest|dev-arm-latest|sync-arm-latest)
+                echo '::error::This tag is reserved for automatic builds.'
+                exit 1
+                ;;
+            esac
+          fi
 
       - name: Set up JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
@@ -44,25 +74,45 @@ jobs:
           mkdir -p ~/.gradle
           cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
 
-      - name: Build app
-        run: ./gradlew assembleStandardRelease
+      - name: Build ARM APKs and run tests
+        if: github.event_name == 'push'
+        run: >-
+          ./gradlew :app:testStandardReleaseUnitTest assembleStandardRelease
+          -Ptachiyomi.build.abis=arm64-v8a,armeabi-v7a
+          -Ptachiyomi.build.universal=false
 
-      # Sign all builds with the same configured release keystore, including push builds.
-      - name: Get tag name
-        if: github.event.inputs.version != ''
+      - name: Build all APKs and run tests
+        if: github.event_name == 'workflow_dispatch'
+        run: ./gradlew :app:testStandardReleaseUnitTest assembleStandardRelease
+
+      - name: Check generated APK variants
+        shell: bash
         run: |
-          set -x
-          echo "VERSION_TAG=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          output = Path('app/build/outputs/apk/standard/release')
+          metadata = json.loads((output / 'output-metadata.json').read_text())
+          actual = {
+              next((f['value'] for f in element['filters'] if f['filterType'] == 'ABI'), 'universal')
+              for element in metadata['elements']
+          }
+          expected = {'arm64-v8a', 'armeabi-v7a'}
+          if os.environ['BUILD_KIND'] == 'full':
+              expected |= {'x86', 'x86_64', 'universal'}
+          assert actual == expected, f'Unexpected APK variants: {actual}; expected {expected}'
+          for element in metadata['elements']:
+              assert (output / element['outputFile']).is_file(), element['outputFile']
+          print('Verified APK variants:', ', '.join(sorted(actual)))
+          PY
 
       - name: Detect installed build-tools version
-        if: env.HAS_SIGNING_KEY == 'true'
+        shell: bash
         run: |
-          BTV=$(ls -1 "${ANDROID_SDK_ROOT}/build-tools" | sort -V | tail -1)
-          echo "Using build-tools $BTV"
-          echo "BUILD_TOOLS_VERSION=$BTV" >> $GITHUB_ENV
+          build_tools_version=$(ls -1 "${ANDROID_SDK_ROOT}/build-tools" | sort -V | tail -1)
+          echo "BUILD_TOOLS_VERSION=$build_tools_version" >> "$GITHUB_ENV"
 
-      - name: Sign APK
-        if: env.HAS_SIGNING_KEY == 'true'
+      - name: Sign APKs with the existing release certificate
         uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: app/build/outputs/apk/standard/release
@@ -73,43 +123,44 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOLS_VERSION }}
 
-      # Push builds publish installable, signed APKs to a single rolling pre-release.
-      # This keeps APKs out of GitHub Actions artifact storage.
-      - name: Require signing credentials
-        if: env.HAS_SIGNING_KEY != 'true'
-        run: |
-          echo "::error::SIGNING_KEY, ALIAS, KEY_STORE_PASSWORD and KEY_PASSWORD must be configured to publish installable APKs."
-          exit 1
-
-      - name: Prepare development Release assets
-        if: github.event_name == 'push'
+      - name: Prepare Release assets
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-apks
-          for variant in universal arm64-v8a armeabi-v7a x86 x86_64; do
+          variants=(arm64-v8a armeabi-v7a)
+          if [[ "$BUILD_KIND" == full ]]; then
+            variants=(universal arm64-v8a armeabi-v7a x86 x86_64)
+          fi
+          for variant in "${variants[@]}"; do
             source="app/build/outputs/apk/standard/release/app-standard-${variant}-release-unsigned-signed.apk"
             test -s "$source" || { echo "::error::Missing signed APK: $source"; exit 1; }
-            cp "$source" "release-apks/tachiyomij2k-${variant}.apk"
+            if [[ "$BUILD_KIND" == arm ]]; then
+              destination="tachiyomij2k-${variant}.apk"
+            elif [[ "$variant" == universal ]]; then
+              destination="tachiyomij2k-${VERSION_TAG}.apk"
+            else
+              destination="tachiyomij2k-${variant}-${VERSION_TAG}.apk"
+            fi
+            cp "$source" "release-apks/$destination"
           done
-          (cd release-apks && sha256sum *.apk > SHA256SUMS)
+          cp app/build/outputs/mapping/standardRelease/mapping.txt release-apks/mapping.txt
+          (cd release-apks && sha256sum *.apk mapping.txt > SHA256SUMS)
 
-      - name: Publish latest development Release
+      - name: Publish automatic ARM Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
-          tag_name: dev-latest
+          tag_name: ${{ env.ARM_RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
-          name: TachiyomiJ2K Development (latest)
+          name: ${{ env.ARM_RELEASE_NAME }}
           body: |
-            Automatically updated signed development build from the master branch.
+            Automatically updated signed ARM build (arm64-v8a and armeabi-v7a).
+            Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
-            Download tachiyomij2k-universal.apk for general Android devices.
-            SHA-256 checksums are provided in SHA256SUMS.
-            This release is a rolling pre-release, not a stable version.
-          files: |
-            release-apks/*.apk
-            release-apks/SHA256SUMS
+            x86, x86_64 and universal APKs are available from manually triggered full releases.
+            SHA256SUMS and the matching R8 mapping.txt are included.
+          files: release-apks/*
           fail_on_unmatched_files: true
           overwrite_files: true
           draft: false
@@ -118,66 +169,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # target_commitish is only used when a tag is first created. Move the
-      # existing rolling tag too so its source link matches the newest APKs.
-      - name: Move development tag to built commit
+      - name: Move automatic ARM tag to built commit
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/dev-latest" \
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${ARM_RELEASE_TAG}" \
             -f sha="${GITHUB_SHA}" -F force=true
 
-      - name: Clean up build artifacts
-        if: env.VERSION_TAG != '' && env.HAS_SIGNING_KEY == 'true'
-        run: |
-          set -e
-
-          mv app/build/outputs/apk/standard/release/app-standard-universal-release-unsigned-signed.apk tachiyomij2k-${{ env.VERSION_TAG }}.apk
-          sha=`sha256sum tachiyomij2k-${{ env.VERSION_TAG }}.apk | awk '{ print $1 }'`
-          echo "APK_UNIVERSAL_SHA=$sha" >> $GITHUB_ENV
-
-          cp app/build/outputs/apk/standard/release/app-standard-arm64-v8a-release-unsigned-signed.apk tachiyomij2k-arm64-v8a-${{ env.VERSION_TAG }}.apk
-          sha=`sha256sum tachiyomij2k-arm64-v8a-${{ env.VERSION_TAG }}.apk | awk '{ print $1 }'`
-          echo "APK_ARM64_V8A_SHA=$sha" >> $GITHUB_ENV
-
-          cp app/build/outputs/apk/standard/release/app-standard-armeabi-v7a-release-unsigned-signed.apk tachiyomij2k-armeabi-v7a-${{ env.VERSION_TAG }}.apk
-          sha=`sha256sum tachiyomij2k-armeabi-v7a-${{ env.VERSION_TAG }}.apk | awk '{ print $1 }'`
-          echo "APK_ARMEABI_V7A_SHA=$sha" >> $GITHUB_ENV
-
-          cp app/build/outputs/apk/standard/release/app-standard-x86-release-unsigned-signed.apk tachiyomij2k-x86-${{ env.VERSION_TAG }}.apk
-          sha=`sha256sum tachiyomij2k-x86-${{ env.VERSION_TAG }}.apk | awk '{ print $1 }'`
-          echo "APK_X86_SHA=$sha" >> $GITHUB_ENV
-
-          cp app/build/outputs/apk/standard/release/app-standard-x86_64-release-unsigned-signed.apk tachiyomij2k-x86_64-${{ env.VERSION_TAG }}.apk
-          sha=`sha256sum tachiyomij2k-x86_64-${{ env.VERSION_TAG }}.apk | awk '{ print $1 }'`
-          echo "APK_X86_64_SHA=$sha" >> $GITHUB_ENV
-
-      - name: Create Release
-        if: env.VERSION_TAG != '' && env.HAS_SIGNING_KEY == 'true'
+      - name: Publish manually requested full Release
+        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ env.VERSION_TAG }}
-          name: TachiyomiJ2K ${{ env.VERSION_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: TachiyomiJ2K Full ${{ env.VERSION_TAG }}
           body: |
-            ---
-
-            ### Checksums
-
-            | Variant | SHA-256 |
-            | ------- | ------- |
-            | Universal | ${{ env.APK_UNIVERSAL_SHA }}
-            | arm64-v8a | ${{ env.APK_ARM64_V8A_SHA }}
-            | armeabi-v7a | ${{ env.APK_ARMEABI_V7A_SHA }}
-            | x86 | ${{ env.APK_X86_SHA }} |
-            | x86_64 | ${{ env.APK_X86_64_SHA }} |
-          files: |
-            tachiyomij2k-${{ env.VERSION_TAG }}.apk
-            tachiyomij2k-arm64-v8a-${{ env.VERSION_TAG }}.apk
-            tachiyomij2k-armeabi-v7a-${{ env.VERSION_TAG }}.apk
-            tachiyomij2k-x86-${{ env.VERSION_TAG }}.apk
-            tachiyomij2k-x86_64-${{ env.VERSION_TAG }}.apk
-          draft: true
-          prerelease: false
+            Manually requested full build: arm64-v8a, armeabi-v7a, x86, x86_64 and universal APKs.
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            SHA256SUMS and the matching R8 mapping.txt are included.
+          files: release-apks/*
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          draft: false
+          prerelease: true
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
