@@ -240,9 +240,10 @@ class MigrationProcessAdapter(
                 if (coverCache.getCustomCoverFile(prevManga).exists()) {
                     coverCache.setCustomCoverToCache(manga, coverCache.getCustomCoverFile(prevManga).inputStream())
                 }
-                customMangaManager.getManga(prevManga)?.let { customManga ->
-                    customManga.id = manga.id!!
-                    customMangaManager.saveMangaInfo(customManga.toJson())
+                // Copy the metadata to the new manga without mutating the previous
+                // entry in CustomMangaManager (the old one may still be in the library).
+                customMangaManager.getCustomInfo(prevManga)?.let { customInfo ->
+                    customMangaManager.saveMangaInfo(customInfo.copy(id = manga.id!!))
                 }
             }
 

@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.ui.source.getSearchMangaWithChineseVariants
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
 import eu.kanade.tachiyomi.util.manga.duplicateLibraryMangaIds
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -179,7 +180,7 @@ open class GlobalSearchPresenter(
                             }
                             val mangas =
                                 try {
-                                    source.getSearchManga(1, query, source.getFilterList())
+                                    source.getSearchMangaWithChineseVariants(1, query, source.getFilterList())
                                 } catch (error: Exception) {
                                     MangasPage(emptyList(), false)
                                 }.mangas

@@ -104,6 +104,13 @@ class EditMangaDialog : DialogController {
         val isLocal = manga.isLocal()
 
         binding.mangaLang.isVisible = isLocal
+        // This fills only the editor; the user still has to tap Save.
+        binding.useOriginalTitle.isVisible = !isLocal
+        binding.useOriginalTitle.setOnClickListener {
+            binding.title.setText(manga.originalTitle)
+            binding.title.setSelection(binding.title.text?.length ?: 0)
+            binding.title.requestFocus()
+        }
         if (isLocal) {
             if (manga.title != manga.url) {
                 binding.title.append(manga.title)

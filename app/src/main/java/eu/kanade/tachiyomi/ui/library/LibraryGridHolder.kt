@@ -55,6 +55,7 @@ class LibraryGridHolder(
     private var lastCoverWidth = 0
 
     private var authorArtist = ""
+    private var hasCustomTitle = false
     private var filter = ""
     private var transitionMangaId: Long? = null
 
@@ -67,11 +68,11 @@ class LibraryGridHolder(
         Runnable {
             val hasAuthorInFilter = filter.isNotBlank() && authorArtist.contains(filter, true)
             val showSubtitle =
-                (binding.title.lineCount <= 1 || hasAuthorInFilter) && authorArtist.isNotBlank()
+                hasCustomTitle || ((binding.title.lineCount <= 1 || hasAuthorInFilter) && authorArtist.isNotBlank())
             if (binding.subtitle.isVisible != showSubtitle) {
                 binding.subtitle.isVisible = showSubtitle
             }
-            val maxLines = if (hasAuthorInFilter) 1 else 2
+            val maxLines = if (hasCustomTitle || hasAuthorInFilter) 1 else 2
             if (binding.title.maxLines != maxLines) {
                 binding.title.maxLines = maxLines
             }
@@ -160,8 +161,11 @@ class LibraryGridHolder(
         }
 
         if (showsTextLayout) {
+            hasCustomTitle = item.manga.title != item.manga.originalTitle
             authorArtist =
-                if (item.manga.author == item.manga.artist || item.manga.artist.isNullOrBlank()) {
+                if (hasCustomTitle) {
+                    item.manga.originalTitle
+                } else if (item.manga.author == item.manga.artist || item.manga.artist.isNullOrBlank()) {
                     item.manga.author?.trim() ?: ""
                 } else {
                     listOfNotNull(

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.source.browse
 
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.ui.source.getSearchMangaWithChineseVariants
 
 open class BrowseSourcePager(
     val source: CatalogueSource,
@@ -15,7 +16,7 @@ open class BrowseSourcePager(
             if (query.isBlank() && filters.isEmpty()) {
                 source.getPopularManga(page)
             } else {
-                source.getSearchManga(page, query, filters)
+                source.getSearchMangaWithChineseVariants(page, query, filters)
             }
 
         if (mangasPage.mangas.isNotEmpty()) {

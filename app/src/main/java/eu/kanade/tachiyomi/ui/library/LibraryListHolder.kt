@@ -93,8 +93,11 @@ class LibraryListHolder(
         setUnreadBadge(binding.unreadDownloadBadge.badgeView, item)
         binding.playLayout.isVisible = item.manga.unread > 0 && !LibraryItem.hideReadingButton
 
+        val hasCustomTitle = item.manga.title != item.manga.originalTitle
         val authorArtist =
-            if (item.manga.author == item.manga.artist || item.manga.artist.isNullOrBlank()) {
+            if (hasCustomTitle) {
+                item.manga.originalTitle
+            } else if (item.manga.author == item.manga.artist || item.manga.artist.isNullOrBlank()) {
                 item.manga.author?.trim() ?: ""
             } else {
                 listOfNotNull(
@@ -112,8 +115,8 @@ class LibraryListHolder(
         binding.title.post {
             val hasAuthorInFilter =
                 item.filter.isNotBlank() && authorArtist.contains(item.filter, true)
-            binding.subtitle.isVisible = binding.title.lineCount <= 1 || hasAuthorInFilter
-            binding.title.maxLines = if (hasAuthorInFilter) 1 else 2
+            binding.subtitle.isVisible = hasCustomTitle || binding.title.lineCount <= 1 || hasAuthorInFilter
+            binding.title.maxLines = if (hasCustomTitle || hasAuthorInFilter) 1 else 2
         }
 
         // Update the cover.
