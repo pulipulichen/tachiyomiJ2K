@@ -2,6 +2,8 @@ package eu.kanade.tachiyomi.data.sync
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -93,7 +95,11 @@ class GoogleDriveSyncClient(private val accessToken: String) {
             val data = response.body.string()
             if (!response.isSuccessful) {
                 // Avoid including request headers or bearer tokens in error messages.
-                throw IOException("Google Drive HTTP ${response.code}: ${data.take(320)}")
+                val message = runCatching {
+                    json.parseToJsonElement(data).jsonObject["error"]
+                        ?.jsonObject?.get("message")?.jsonPrimitive?.content
+                }.getOrNull() ?: response.message
+                throw IOException("Google Drive HTTP ${response.code}: ${message.take(300)}")
             }
             return data
         }

@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.data.sync
 
 import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 
 /**
  * Only non-secret account identity and sync status are persisted.
@@ -28,6 +31,23 @@ class CloudSyncConfig(context: Context) {
     var lastError: String?
         get() = prefs.getString("last_error", null)
         set(value) { prefs.edit().putString("last_error", value).apply() }
+
+    /** Emit immediately and after authorization or a background worker changes state. */
+    fun changes() = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        trySend(Unit)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
+    fun connect(id: String, email: String?) {
+        prefs.edit()
+            .putString("account_id", id)
+            .putString("account_email", email)
+            .putBoolean("enabled", true)
+            .remove("last_error")
+            .apply()
+    }
 
     companion object {
         const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata"

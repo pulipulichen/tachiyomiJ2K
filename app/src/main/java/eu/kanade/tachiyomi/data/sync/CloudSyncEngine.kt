@@ -105,14 +105,16 @@ class CloudSyncEngine(
      * One invocation may fetch multiple Drive files, but can only modify the
      * current device's file. WorkManager is serialized with a process-wide lock.
      */
-    fun sync() {
+    suspend fun sync(onProgress: suspend (CloudSyncStage, Int, Int) -> Unit) {
         val accountId = config.accountId ?: error("Connect Google Drive before syncing")
         val journal = load(accountId)
         val filename = "tachiyomi-j2k-sync-v1-${journal.deviceId}.json"
+        onProgress(CloudSyncStage.DOWNLOADING, 0, 0)
         val remoteFiles = drive.listFiles()
         val allEvents = mutableListOf<Event>()
         val ownFiles = remoteFiles.filter { it.name == filename }
-        for (file in remoteFiles) {
+        for ((index, file) in remoteFiles.withIndex()) {
+            onProgress(CloudSyncStage.DOWNLOADING, index, remoteFiles.size)
             val contents = drive.readFile(file.id)
             require(contents.length < 40_000_000) { "Drive sync file too large: ${file.name}" }
             val envelope = json.decodeFromString<Envelope>(contents)
@@ -122,6 +124,7 @@ class CloudSyncEngine(
             }
             allEvents.addAll(envelope.events)
         }
+        onProgress(CloudSyncStage.PREPARING, 0, 0)
 
         // Recover own history if the upload succeeded but local save did not.
         val ownEvents = allEvents.filter { it.deviceId == journal.deviceId }
@@ -173,12 +176,14 @@ class CloudSyncEngine(
 
         // Upload only this device's journal. Failure cannot cause a remote import.
         val ownJson = json.encodeToString(Envelope(deviceId = journal.deviceId, events = journal.events.values.toList()))
+        onProgress(CloudSyncStage.UPLOADING, 0, 0)
         if (ownFiles.isEmpty()) {
             drive.createFile(filename, ownJson)
         } else {
             drive.updateFile(ownFiles.first().id, ownJson)
         }
 
+        onProgress(CloudSyncStage.MERGING, 0, 0)
         // Resolve all current entities by a deterministic total order.
         val latest = mutableMapOf<String, Event>()
         for (event in allEvents + journal.events.values) {
