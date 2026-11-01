@@ -21,6 +21,8 @@ jobs:
   build:
     name: Build app
     runs-on: ubuntu-24.04
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.SIGNING_KEY != '' && secrets.ALIAS != '' && secrets.KEY_STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' }}
 
     steps:
       - name: Checkout
@@ -45,7 +47,7 @@ jobs:
       - name: Build app
         run: ./gradlew assembleStandardRelease
 
-      # Sign APK and create release for tags
+      # Sign all builds with the same configured release keystore, including push builds.
       - name: Get tag name
         if: github.event.inputs.version != ''
         run: |
@@ -53,14 +55,14 @@ jobs:
           echo "VERSION_TAG=${{ github.event.inputs.version }}" >> $GITHUB_ENV
 
       - name: Detect installed build-tools version
-        if: env.VERSION_TAG != ''
+        if: env.HAS_SIGNING_KEY == 'true'
         run: |
           BTV=$(ls -1 "${ANDROID_SDK_ROOT}/build-tools" | sort -V | tail -1)
           echo "Using build-tools $BTV"
           echo "BUILD_TOOLS_VERSION=$BTV" >> $GITHUB_ENV
 
       - name: Sign APK
-        if: env.VERSION_TAG != ''
+        if: env.HAS_SIGNING_KEY == 'true'
         uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: app/build/outputs/apk/standard/release
@@ -70,6 +72,24 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
         env:
           BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOLS_VERSION }}
+
+      - name: Upload signed APKs
+        if: env.HAS_SIGNING_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tachiyomij2k-signed-${{ github.run_number }}
+          path: app/build/outputs/apk/standard/release/*-signed.apk
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload unsigned APKs (signing secrets not configured)
+        if: env.HAS_SIGNING_KEY != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tachiyomij2k-unsigned-NOT-INSTALLABLE-${{ github.run_number }}
+          path: app/build/outputs/apk/standard/release/*-unsigned.apk
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Clean up build artifacts
         if: env.VERSION_TAG != ''
