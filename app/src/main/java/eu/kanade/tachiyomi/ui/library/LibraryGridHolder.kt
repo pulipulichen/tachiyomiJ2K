@@ -2,6 +2,9 @@ package eu.kanade.tachiyomi.ui.library
 
 import android.app.Activity
 import android.graphics.drawable.RippleDrawable
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -146,7 +149,26 @@ class LibraryGridHolder(
 
         // Each layout shows the title in a different view, no need to fill in the hidden ones
         when {
-            compact -> binding.compactTitle.text = item.manga.title.highlightText(filter, color)
+            compact -> {
+                val mainTitle = item.manga.title.highlightText(filter, color)
+                val hasCustomTitle = item.manga.title != item.manga.originalTitle
+                if (hasCustomTitle) {
+                    val text = SpannableStringBuilder(mainTitle)
+                    text.append("\n")
+                    val subtitleStart = text.length
+                    text.append(item.manga.originalTitle)
+                    text.setSpan(
+                        RelativeSizeSpan(0.8f),
+                        subtitleStart,
+                        text.length,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
+                    binding.compactTitle.text = text
+                } else {
+                    binding.compactTitle.text = mainTitle
+                }
+                binding.compactTitle.maxLines = if (hasCustomTitle) 3 else 2
+            }
             coverOnly -> binding.behindTitle.text = item.manga.title
             else -> binding.title.text = item.manga.title.highlightText(filter, color)
         }
