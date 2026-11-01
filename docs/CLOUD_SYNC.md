@@ -12,6 +12,6 @@ Only account identity and sync metadata are stored in preferences; access tokens
 
 ## Validation
 
-Run `./gradlew :app:testStandardReleaseUnitTest assembleStandardRelease`. Unit tests cover periodic idle state, queued work, running-work precedence, file progress, retry availability, and finished/cancelled work. The CI release workflow runs these tests before producing signed APKs and retains the matching R8 mapping file.
+Run `./gradlew :app:testStandardReleaseUnitTest assembleStandardRelease`. Unit tests cover periodic idle state, queued work, running-work precedence, file progress, retry availability, and finished/cancelled work. Both automatic ARM and manual full release builds run these tests before producing signed APKs and retain the matching R8 mapping file. See [APK release channels](RELEASES.md).
 
 Device checks still require Google Play services and the user's account: authorize, verify that controls and account information refresh without reopening settings, watch the first sync stages, turn automatic sync off and run a manual sync, disconnect, reconnect, and verify progress against another device. No two-device runtime validation is claimed by the JVM tests.

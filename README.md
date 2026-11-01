@@ -8,6 +8,12 @@ TachiyomiJ2K is a free and open source manga reader for Android 6.0 and above. B
 
 ![screenshots of app](./.github/readme-images/screens.gif)
 
+## Downloads for this fork
+
+- [Automatic ARM builds](https://github.com/pulipulichen/tachiyomiJ2K/releases/tag/dev-arm-latest) for the master branch.
+- [Automatic ARM sync beta](https://github.com/pulipulichen/tachiyomiJ2K/releases/tag/sync-arm-latest) for the Google Drive sync branch.
+- Full builds with x86 and a universal APK are published only by manually running the APK workflow. See [release instructions](docs/RELEASES.md).
+
 ## Features
 
 Features of Tachiyomi include:

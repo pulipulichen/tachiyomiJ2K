@@ -1,13 +1,6 @@
 name: Cloud sync verification
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - 'app/src/main/java/eu/kanade/tachiyomi/data/sync/**'
-      - 'app/src/main/java/eu/kanade/tachiyomi/ui/setting/**'
-      - 'app/src/main/AndroidManifest.xml'
-      - 'app/build.gradle.kts'
-      - '.github/workflows/cloud-sync-verify.yml'
+  # Automatic ARM builds already compile and test sync changes.
   workflow_dispatch:
 
 concurrency:
