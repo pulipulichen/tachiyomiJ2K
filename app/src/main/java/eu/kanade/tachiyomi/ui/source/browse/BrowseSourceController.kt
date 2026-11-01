@@ -386,7 +386,7 @@ open class BrowseSourceController(
         }
     }
 
-    override fun onActionViewExpand(item: MenuItem?) = searchHistory.onActionViewExpand(item)
+    override fun onActionViewExpand(item: MenuItem?) = searchHistory.setVisible(presenter.query.isBlank())
 
     override fun onActionViewCollapse(item: MenuItem?) {
         searchHistory.setVisible(false)
