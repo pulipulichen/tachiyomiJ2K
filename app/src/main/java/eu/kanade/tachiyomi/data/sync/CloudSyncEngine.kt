@@ -129,10 +129,31 @@ class CloudSyncEngine(
             val previous = journal.events[event.key]
             if (previous == null || isNewer(event, previous)) journal.events[event.key] = event
         }
-        journal.clock = maxOf(journal.clock, allEvents.maxOfOrNull { it.clock } ?: 0L)
+        // An offline local edit must not get a newer clock merely because a
+        // remote edit arrived while this worker was downloading Drive files.
+        journal.clock = maxOf(journal.clock, ownEvents.maxOfOrNull { it.clock } ?: 0L)
 
         // Capture edits BEFORE merging from remote, so offline edits are not lost.
         val snapshot = snapshot()
+        // A reset-to-unread chapter is absent from the sparse snapshot. Emit
+        // an explicit zero-progress event if the chapter still exists locally.
+        for ((key, prior) in journal.baseline) {
+            if (!key.contains(":c:") || key in snapshot) continue
+            val previous = json.decodeFromString<Event>(prior).chapter ?: continue
+            val manga = db.getManga(previous.mangaUrl, previous.source).executeAsBlocking() ?: continue
+            if (!manga.favorite) continue
+            val chapter = db.getChapter(previous.url, manga.id ?: continue).executeAsBlocking() ?: continue
+            snapshot[key] = Event(
+                key, "", 0,
+                chapter = previous.copy(
+                    name = chapter.name,
+                    read = false,
+                    bookmark = false,
+                    lastPage = 0,
+                    pagesLeft = 0,
+                ),
+            )
+        }
         for ((key, event) in snapshot) {
             if (journal.baseline[key] != fingerprint(event)) {
                 journal.clock++
@@ -147,6 +168,7 @@ class CloudSyncEngine(
                 journal.events[key] = Event(key, journal.deviceId, journal.clock, manga = old.copy(favorite = false))
             }
         }
+        journal.clock = maxOf(journal.clock, allEvents.maxOfOrNull { it.clock } ?: 0L)
         save(journal) // Persist outgoing events BEFORE any remote I/O.
 
         // Upload only this device's journal. Failure cannot cause a remote import.
@@ -165,13 +187,14 @@ class CloudSyncEngine(
             if (previous == null || isNewer(event, previous)) latest[event.key] = event
         }
 
-        // Merge by entity type. Chapter progress must follow manga creation.
+        // Avoid re-writing unchanged titles, categories and progress on every
+        // periodic run. Chapter progress must follow manga creation.
         db.inTransaction {
             latest.values.filter { it.manga != null }.sortedBy { it.key }.forEach { event ->
-                applyManga(event.manga!!)
+                if (fingerprint(event) != snapshot[event.key]?.let(::fingerprint)) applyManga(event.manga!!)
             }
             latest.values.filter { it.chapter != null }.sortedBy { it.key }.forEach { event ->
-                applyChapter(event.chapter!!)
+                if (fingerprint(event) != snapshot[event.key]?.let(::fingerprint)) applyChapter(event.chapter!!)
             }
         }
         // Baseline is the actual merged local state, not just the remote JSON.
