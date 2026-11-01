@@ -134,7 +134,7 @@ class CloudSyncEngine(
         journal.clock = maxOf(journal.clock, ownEvents.maxOfOrNull { it.clock } ?: 0L)
 
         // Capture edits BEFORE merging from remote, so offline edits are not lost.
-        val snapshot = snapshot()
+        val snapshot = snapshot().toMutableMap()
         // A reset-to-unread chapter is absent from the sparse snapshot. Emit
         // an explicit zero-progress event if the chapter still exists locally.
         for ((key, prior) in journal.baseline) {
