@@ -73,26 +73,63 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOLS_VERSION }}
 
-      - name: Upload signed APKs
-        if: env.HAS_SIGNING_KEY == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tachiyomij2k-signed-${{ github.run_number }}
-          path: app/build/outputs/apk/standard/release/*-signed.apk
-          if-no-files-found: error
-          retention-days: 3
-
-      - name: Upload unsigned APKs (signing secrets not configured)
+      # Push builds publish installable, signed APKs to a single rolling pre-release.
+      # This keeps APKs out of GitHub Actions artifact storage.
+      - name: Require signing credentials
         if: env.HAS_SIGNING_KEY != 'true'
-        uses: actions/upload-artifact@v4
+        run: |
+          echo "::error::SIGNING_KEY, ALIAS, KEY_STORE_PASSWORD and KEY_PASSWORD must be configured to publish installable APKs."
+          exit 1
+
+      - name: Prepare development Release assets
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-apks
+          for variant in universal arm64-v8a armeabi-v7a x86 x86_64; do
+            source="app/build/outputs/apk/standard/release/app-standard-${variant}-release-unsigned-signed.apk"
+            test -s "$source" || { echo "::error::Missing signed APK: $source"; exit 1; }
+            cp "$source" "release-apks/tachiyomij2k-${variant}.apk"
+          done
+          (cd release-apks && sha256sum *.apk > SHA256SUMS)
+
+      - name: Publish latest development Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
-          name: tachiyomij2k-unsigned-NOT-INSTALLABLE-${{ github.run_number }}
-          path: app/build/outputs/apk/standard/release/*-unsigned.apk
-          if-no-files-found: error
-          retention-days: 3
+          tag_name: dev-latest
+          target_commitish: ${{ github.sha }}
+          name: TachiyomiJ2K Development (latest)
+          body: |
+            Automatically updated signed development build from the master branch.
+            Commit: ${{ github.sha }}
+            Download tachiyomij2k-universal.apk for general Android devices.
+            SHA-256 checksums are provided in SHA256SUMS.
+            This release is a rolling pre-release, not a stable version.
+          files: |
+            release-apks/*.apk
+            release-apks/SHA256SUMS
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          draft: false
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # target_commitish is only used when a tag is first created. Move the
+      # existing rolling tag too so its source link matches the newest APKs.
+      - name: Move development tag to built commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/dev-latest" \
+            -f sha="${GITHUB_SHA}" -F force=true
 
       - name: Clean up build artifacts
-        if: env.VERSION_TAG != ''
+        if: env.VERSION_TAG != '' && env.HAS_SIGNING_KEY == 'true'
         run: |
           set -e
 
@@ -117,7 +154,7 @@ jobs:
           echo "APK_X86_64_SHA=$sha" >> $GITHUB_ENV
 
       - name: Create Release
-        if: env.VERSION_TAG != ''
+        if: env.VERSION_TAG != '' && env.HAS_SIGNING_KEY == 'true'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ env.VERSION_TAG }}
