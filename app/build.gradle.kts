@@ -227,6 +227,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("com.google.guava:guava:33.6.0-jre")
 
+    // Google Identity Services: request the minimal Drive appdata scope.
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
     implementation("com.google.android.gms:play-services-gcm:17.0.0")
 
     // Database
