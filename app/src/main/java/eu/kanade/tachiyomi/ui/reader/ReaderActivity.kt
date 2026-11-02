@@ -84,6 +84,7 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
+import eu.kanade.tachiyomi.data.sync.CloudSyncWorker
 import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.preference.asImmediateFlowIn
 import eu.kanade.tachiyomi.data.preference.toggle
@@ -1701,6 +1702,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     override fun onPause() {
         viewModel.saveCurrentChapterReadingProgress()
         super.onPause()
+        // Debounced via unique WorkManager work; periodic sync is the fallback
+        // if the reader's progress write completes after this request runs.
+        CloudSyncWorker.runNow(applicationContext)
     }
 
     override fun onResume() {

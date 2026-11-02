@@ -134,6 +134,7 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     // Compose
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.foundation:foundation:1.11.4")
@@ -233,6 +234,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("com.google.guava:guava:33.6.0-jre")
 
+    // Google Identity Services: request the minimal Drive appdata scope.
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
     implementation("com.google.android.gms:play-services-gcm:17.0.0")
 
     // Database
