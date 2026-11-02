@@ -269,6 +269,7 @@ open class LibraryController(
         get() = binding.libraryGridRecycler.recycler
     private var staggeredBundle: Parcelable? = null
     private var staggeredObserver: ViewTreeObserver.OnGlobalLayoutListener? = null
+    private var bottomNavLayoutListener: View.OnLayoutChangeListener? = null
     var isPoppingIn = false
     var tempItems: List<LibraryItem>? = null
     private var isFindingDownloads = false
@@ -653,6 +654,19 @@ open class LibraryController(
         mAdapter = LibraryCategoryAdapter(this)
         adapter.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         setRecyclerLayout()
+        // The activity's bottom navigation can still have zero height when the
+        // library view is created. Keep the grid's scrollable bottom inset in
+        // sync with its actual measured height (including system navigation insets).
+        if (!isSubClass) {
+            activityBinding?.bottomNav?.let { bottomNav ->
+                bottomNavLayoutListener =
+                    View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                        updateLibraryBottomPadding()
+                    }
+                bottomNav.addOnLayoutChangeListener(bottomNavLayoutListener)
+            }
+        }
+        updateLibraryBottomPadding()
         binding.libraryGridRecycler.recycler.setHasFixedSize(true)
         binding.libraryGridRecycler.recycler.adapter = adapter
         binding.libraryGridRecycler.recycler.addItemDecoration(
@@ -1085,14 +1099,19 @@ open class LibraryController(
         binding.libraryGridRecycler.recycler.requestSpanUpdate()
     }
 
+    private fun updateLibraryBottomPadding() {
+        val recycler = binding.libraryGridRecycler.recycler
+        val bottomNavHeight = if (isSubClass) 0 else activityBinding?.bottomNav?.height ?: 0
+        val bottomPadding = 50.dpToPx + bottomNavHeight
+        if (recycler.paddingBottom != bottomPadding) {
+            recycler.updatePaddingRelative(bottom = bottomPadding)
+            binding.emptyView.updatePadding(bottom = bottomPadding)
+        }
+    }
+
     private fun setRecyclerLayout() {
         with(binding.libraryGridRecycler.recycler) {
-            val bottomNav = if (isSubClass) null else activityBinding?.bottomNav
-            viewScope.launchUI {
-                updatePaddingRelative(
-                    bottom = 50.dpToPx + (bottomNav?.height ?: 0),
-                )
-            }
+            updateLibraryBottomPadding()
             useStaggered(preferences)
             if (libraryLayout == LibraryItem.LAYOUT_LIST) {
                 spanCount = 1
@@ -1216,6 +1235,10 @@ open class LibraryController(
     }
 
     override fun onDestroyView(view: View) {
+        bottomNavLayoutListener?.let { listener ->
+            activityBinding?.bottomNav?.removeOnLayoutChangeListener(listener)
+        }
+        bottomNavLayoutListener = null
         destroyActionModeIfNeeded()
         if (isBindingInitialized) {
             binding.libraryGridRecycler.recycler.removeOnScrollListener(scrollListener)
