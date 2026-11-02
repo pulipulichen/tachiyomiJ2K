@@ -77,7 +77,7 @@ class SettingsMainController :
             preference {
                 iconRes = R.drawable.ic_sync_24dp
                 iconTint = tintColor
-                title = "Google Drive sync"
+                titleRes = R.string.cloud_sync_title
                 onClick { navigateTo(SettingsCloudSyncController()) }
             }
             preference {
