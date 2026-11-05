@@ -25,6 +25,11 @@ class AppUpdateChecker {
         isUserPrompt: Boolean = false,
         doExtrasAfterNewUpdate: Boolean = true,
     ): AppUpdateResult {
+        // Manual checks remain available even when automatic checks are disabled.
+        if (!isUserPrompt && !preferences.automaticAppUpdateChecks().get()) {
+            return AppUpdateResult.NoNewUpdate
+        }
+
         // Limit checks to once a day at most
         if (!isUserPrompt && Date().time < preferences.lastAppCheck().get() + TimeUnit.DAYS.toMillis(1)) {
             return AppUpdateResult.NoNewUpdate
