@@ -793,6 +793,8 @@
     <string name="last_used_library_recents">Last used (Library or Recents)</string>
     <string name="system_default">System default</string>
     <string name="date_format">Date format</string>
+    <string name="automatic_app_update_checks">Automatically check for app updates</string>
+    <string name="automatic_app_update_checks_summary">Check for new app versions in the background</string>
     <string name="check_for_updates">Check for updates</string>
     <string name="app_updates">App updates</string>
     <string name="updated_to_">Updated to v%1$s</string>
