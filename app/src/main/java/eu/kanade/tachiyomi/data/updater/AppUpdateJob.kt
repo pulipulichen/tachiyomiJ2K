@@ -10,6 +10,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import uy.kohesive.injekt.injectLazy
 import eu.kanade.tachiyomi.util.system.notificationManager
 import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
@@ -19,9 +21,12 @@ class AppUpdateJob(
     private val context: Context,
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams) {
+    private val preferences: PreferencesHelper by injectLazy()
+
     override suspend fun doWork(): Result =
         coroutineScope {
             try {
+                if (!preferences.automaticAppUpdateChecks().get()) return@coroutineScope Result.success()
                 AppUpdateChecker().checkForUpdate(context)
                 Result.success()
             } catch (e: Exception) {
