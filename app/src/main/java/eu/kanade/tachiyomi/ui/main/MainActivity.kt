@@ -1175,7 +1175,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     }
 
     private fun checkForAppUpdates() {
-        if (isUpdaterEnabled) {
+        if (isUpdaterEnabled && preferences.automaticAppUpdateChecks().get()) {
             lifecycleScope.launchIO {
                 try {
                     val result = updateChecker.checkForUpdate(this@MainActivity)
