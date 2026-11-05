@@ -498,6 +498,8 @@ class PreferencesHelper(
 
     fun lastExtCheck() = flowPrefs.getLong("last_ext_check", 0)
 
+    fun automaticAppUpdateChecks() = flowPrefs.getBoolean("automatic_app_update_checks", false)
+
     fun lastAppCheck() = flowPrefs.getLong("last_app_check", 0)
 
     fun checkForBetas() = flowPrefs.getBoolean("check_for_betas", BuildConfig.BETA)
