@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.ui.setting.onClick
 import eu.kanade.tachiyomi.ui.setting.preference
 import eu.kanade.tachiyomi.ui.setting.preferenceCategory
 import eu.kanade.tachiyomi.ui.setting.titleRes
+import eu.kanade.tachiyomi.ui.setting.switchPreference
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.lang.toTimestampString
 import eu.kanade.tachiyomi.util.system.isOnline
@@ -79,6 +80,12 @@ class AboutController : SettingsController() {
                 }
             }
             if (isUpdaterEnabled) {
+                switchPreference {
+                    key = "automatic_app_update_checks"
+                    titleRes = R.string.automatic_app_update_checks
+                    summaryRes = R.string.automatic_app_update_checks_summary
+                    defaultValue = false
+                }
                 preference {
                     key = "pref_check_for_updates"
                     titleRes = R.string.check_for_updates
