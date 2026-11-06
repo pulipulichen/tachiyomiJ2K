@@ -83,8 +83,8 @@ class AboutController : SettingsController() {
                 switchPreference {
                     key = "automatic_app_update_checks"
                     titleRes = R.string.automatic_app_update_checks
-                    summaryRes = R.string.automatic_app_update_checks_summary
-                    defaultValue = false
+                    summary = context.getString(R.string.automatic_app_update_checks_summary)
+                    setDefaultValue(false)
                 }
                 preference {
                     key = "pref_check_for_updates"
